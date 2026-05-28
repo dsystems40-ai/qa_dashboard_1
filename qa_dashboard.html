@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StarEats Kitchen — QA Dashboard v7.7</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --red: #ef4444; --orange: #f97316; --yellow: #eab308;
+    --green: #22c55e; --gray: #94a3b8; --purple: #7c3aed;
+    --bg: #0f172a; --card: #1e293b; --border: #334155;
+    --text: #e2e8f0; --muted: #94a3b8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+
+  /* HEADER */
+  .header { background: linear-gradient(135deg, #1e1b4b, #312e81); padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+  .header-left h1 { font-size: 22px; font-weight: 700; color: #a78bfa; }
+  .header-left p { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .header-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge-red { background: #450a0a; color: #fca5a5; border: 1px solid #7f1d1d; }
+  .badge-orange { background: #431407; color: #fdba74; border: 1px solid #7c2d12; }
+
+  /* SAVE BAR */
+  .save-bar { background: #0f172a; border-bottom: 1px solid var(--border); padding: 7px 24px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .save-bar-left { display: flex; align-items: center; gap: 10px; flex: 1; flex-wrap: wrap; }
+  .save-indicator { font-size: 12px; display: flex; align-items: center; gap: 6px; }
+  .save-dot { width: 7px; height: 7px; border-radius: 50%; }
+  .dot-saved { background: var(--green); }
+  .dot-unsaved { background: var(--orange); animation: pulse 1.2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  .btn-save { background: var(--green); color: #052e16; font-weight: 700; }
+  .btn-export { background: #1e3a5f; color: #93c5fd; border: 1px solid #1e40af; }
+  .btn-import { background: #1e293b; color: var(--muted); border: 1px solid var(--border); }
+  .btn-reset { background: #450a0a; color: #fca5a5; border: 1px solid #7f1d1d; }
+
+  /* TOAST */
+  .toast { position: fixed; bottom: 24px; right: 24px; background: #1e293b; border: 1px solid var(--border); border-radius: 10px; padding: 12px 18px; font-size: 13px; display: flex; align-items: center; gap: 10px; z-index: 999; box-shadow: 0 8px 24px rgba(0,0,0,.4); transform: translateY(80px); opacity: 0; transition: all .3s ease; pointer-events: none; }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast-icon { font-size: 16px; }
+
+  /* GITHUB SYNC */
+  .dot-syncing  { background: #38bdf8; animation: pulse 0.8s infinite; }
+  .dot-synced   { background: #38bdf8; }
+  .dot-error    { background: var(--orange); }
+  .btn-github   { background: #161b22; color: #e2e8f0; border: 1px solid #30363d; }
+  .btn-github.connected { background: #0d2136; color: #38bdf8; border-color: #1d4ed8; }
+  .sync-sep     { color: var(--border); font-size: 11px; }
+  .gh-token-info { font-size: 11px; color: var(--muted); background: #0f172a; border-radius: 6px; padding: 10px 12px; line-height: 1.6; margin-bottom: 10px; }
+  .gh-token-info a { color: #38bdf8; }
+
+  /* NAV TABS */
+  .nav { background: var(--card); border-bottom: 1px solid var(--border); display: flex; gap: 0; overflow-x: auto; scrollbar-width: none; }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav-btn { padding: 12px 18px; border: none; background: none; color: var(--muted); cursor: pointer; font-size: 13px; font-weight: 500; white-space: nowrap; border-bottom: 2px solid transparent; transition: all .2s; }
+  .nav-btn:hover { color: var(--text); }
+  .nav-btn.active { color: #a78bfa; border-bottom-color: #7c3aed; }
+
+  /* CONTENT */
+  .content { display: none; padding: 24px; max-width: 1400px; margin: 0 auto; }
+  .content.active { display: block; }
+
+  /* CARDS */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 24px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .card-num { font-size: 32px; font-weight: 700; line-height: 1; }
+  .card-label { font-size: 11px; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: .05em; }
+  .card-sub { font-size: 11px; color: var(--muted); margin-top: 8px; }
+  .c-red { border-left: 4px solid var(--red); }
+  .c-orange { border-left: 4px solid var(--orange); }
+  .c-yellow { border-left: 4px solid var(--yellow); }
+  .c-green { border-left: 4px solid var(--green); }
+  .c-purple { border-left: 4px solid var(--purple); }
+
+  /* CHARTS GRID */
+  .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .chart-box { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 18px; }
+  .chart-box h3 { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 14px; }
+  .chart-wrap { position: relative; height: 200px; }
+
+  /* CRITICAL POINTS */
+  .critical-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px; }
+  .critical-item { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; display: flex; align-items: flex-start; gap: 12px; }
+  .crit-badge { padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; white-space: nowrap; }
+  .crit-bloquant { background: #450a0a; color: #fca5a5; }
+  .crit-critique { background: #431407; color: #fdba74; }
+  .crit-important { background: #451a03; color: #fde68a; }
+  .crit-desc { font-size: 13px; flex: 1; }
+  .crit-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .crit-action { font-size: 11px; color: #86efac; margin-top: 3px; }
+
+  /* BUG TABLE */
+  .toolbar { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+  .search { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; color: var(--text); font-size: 13px; flex: 1; min-width: 200px; }
+  .search:focus { outline: none; border-color: var(--purple); }
+  select.filter { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; color: var(--text); font-size: 13px; cursor: pointer; }
+  select.filter:focus { outline: none; }
+  .btn { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: opacity .2s; }
+  .btn:hover { opacity: .85; }
+  .btn-primary { background: var(--purple); color: #fff; }
+  .btn-sm { padding: 4px 10px; font-size: 11px; }
+  .btn-danger { background: #7f1d1d; color: #fca5a5; }
+
+  table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 10px; overflow: hidden; }
+  th { background: #0f172a; padding: 10px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); border-bottom: 1px solid var(--border); }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 12px; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(124,58,237,.08); }
+  .expand-row td { background: #0f172a !important; padding: 14px 16px; }
+
+  /* SEVERITY BADGES */
+  .sev { padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+  .sev-bloquant { background: #450a0a; color: #fca5a5; }
+  .sev-critique { background: #431407; color: #fdba74; }
+  .sev-majeur { background: #422006; color: #fde68a; }
+  .sev-mineur { background: #052e16; color: #86efac; }
+  .sev-cosmétique { background: #1e293b; color: #94a3b8; }
+  .sev-cosmétique-text { background: #1e293b; color: #94a3b8; }
+
+  /* STATUS BADGES */
+  .status { padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+  .status-nouveau { background: #1e293b; color: #94a3b8; }
+  .status-en-cours { background: #1e3a5f; color: #93c5fd; }
+  .status-validé { background: #052e16; color: #86efac; }
+  .status-fermé { background: #134e4a; color: #5eead4; }
+
+  /* PRIORITY DOTS */
+  .prio { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
+  .prio-critique { background: var(--red); }
+  .prio-haute { background: var(--orange); }
+  .prio-moyenne { background: var(--yellow); }
+  .prio-basse { background: var(--green); }
+
+  /* ADD BUG FORM */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 100; align-items: center; justify-content: center; padding: 20px; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; width: 100%; max-width: 680px; max-height: 90vh; overflow-y: auto; }
+  .modal h2 { font-size: 17px; margin-bottom: 20px; color: #a78bfa; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-full { grid-column: 1 / -1; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  input, textarea, select.form-select { background: #0f172a; border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; color: var(--text); font-size: 13px; width: 100%; }
+  input:focus, textarea:focus, select.form-select:focus { outline: none; border-color: var(--purple); }
+  textarea { resize: vertical; min-height: 70px; font-family: inherit; }
+  .form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+  .btn-secondary { background: var(--border); color: var(--text); }
+
+  /* CHECKLIST */
+  .checklist-section { margin-bottom: 20px; }
+  .checklist-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; cursor: pointer; }
+  .checklist-header h3 { font-size: 13px; font-weight: 700; color: #a78bfa; display: flex; align-items: center; gap: 8px; }
+  .checklist-progress { font-size: 11px; color: var(--muted); }
+  .progress-bar { height: 4px; background: var(--border); border-radius: 2px; margin-bottom: 10px; }
+  .progress-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--purple), #38bdf8); transition: width .3s; }
+  .checklist-items { display: flex; flex-direction: column; gap: 4px; }
+  .check-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 12px; border-radius: 6px; background: var(--card); border: 1px solid var(--border); cursor: pointer; transition: border-color .2s; }
+  .check-item:hover { border-color: var(--purple); }
+  .check-item.ko { border-left: 3px solid var(--red); }
+  .check-item.ok { border-left: 3px solid var(--green); opacity: .6; }
+  .check-item.testing { border-left: 3px solid var(--gray); }
+  .check-status { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 3px; white-space: nowrap; margin-top: 1px; }
+  .cs-ko { background: #450a0a; color: #fca5a5; }
+  .cs-ok { background: #052e16; color: #86efac; }
+  .cs-test { background: #1e293b; color: #94a3b8; }
+  .check-text { flex: 1; font-size: 12px; }
+  .check-note { font-size: 11px; color: var(--orange); margin-top: 2px; }
+
+  /* MODULE CARDS */
+  .module-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+  .module-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .module-header { padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); }
+  .module-title { font-size: 13px; font-weight: 700; }
+  .module-count { font-size: 11px; color: var(--muted); }
+  .test-row { padding: 8px 14px; border-bottom: 1px solid rgba(51,65,85,.5); display: flex; align-items: flex-start; gap: 10px; }
+  .test-row:last-child { border-bottom: none; }
+  .test-id { font-size: 10px; color: var(--muted); white-space: nowrap; margin-top: 1px; font-family: monospace; }
+  .test-text { font-size: 12px; flex: 1; }
+  .test-bug { font-size: 10px; color: var(--red); margin-top: 2px; }
+  .test-prio { font-size: 10px; }
+
+  /* REMARKS SECTION */
+  .remarks { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+  .remark { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; }
+  .remark-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .remark-meta { font-size: 11px; color: var(--muted); }
+  .remark-text { font-size: 13px; }
+  .remark-tags { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .tag { padding: 2px 8px; background: #1e293b; border: 1px solid var(--border); border-radius: 12px; font-size: 10px; color: var(--muted); }
+
+  /* TIMELINE */
+  .timeline { position: relative; padding-left: 24px; }
+  .timeline::before { content: ''; position: absolute; left: 8px; top: 0; bottom: 0; width: 2px; background: var(--border); }
+  .tl-item { position: relative; margin-bottom: 16px; }
+  .tl-dot { position: absolute; left: -20px; top: 4px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--bg); }
+  .tl-dot-red { background: var(--red); }
+  .tl-dot-orange { background: var(--orange); }
+  .tl-dot-gray { background: var(--gray); }
+  .tl-content { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; }
+  .tl-title { font-size: 12px; font-weight: 600; }
+  .tl-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  /* SCROLLABLE TABLE */
+  .table-wrap { overflow-x: auto; border-radius: 10px; }
+
+  .empty { text-align: center; padding: 40px; color: var(--muted); font-size: 13px; }
+
+  @media (max-width: 640px) {
+    .form-grid { grid-template-columns: 1fr; }
+    .cards { grid-template-columns: repeat(2, 1fr); }
+    .header { padding: 14px 16px; }
+    .content { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <h1>⭐ StarEats Kitchen — QA Dashboard</h1>
+    <p>Version 7.7 · Rapport du 15/05/2026 · QA : Star Eats Kitchen</p>
+  </div>
+  <div class="header-right">
+    <span class="badge badge-red">🔴 5 Bloquants</span>
+    <span class="badge badge-orange">🟠 5 Critiques</span>
+    <span class="badge" style="background:#422006;color:#fde68a;border:1px solid #78350f">🟡 7 Majeurs</span>
+    <span class="badge" style="background:#1e293b;color:#94a3b8;border:1px solid #334155">⚪ 1 Cosmétique</span>
+  </div>
+</div>
+
+<!-- SAVE BAR -->
+<div class="save-bar">
+  <div class="save-bar-left">
+    <div class="save-indicator">
+      <span class="save-dot dot-saved" id="save-dot"></span>
+      <span id="save-label" style="color:var(--muted)">Chargé depuis la mémoire locale</span>
+    </div>
+    <span class="sync-sep">|</span>
+    <span style="font-size:11px;color:var(--muted)" id="save-time"></span>
+    <span class="sync-sep">|</span>
+    <div class="save-indicator">
+      <span class="save-dot" id="gh-dot" style="background:var(--border)"></span>
+      <span id="gh-label" style="color:var(--muted);font-size:11px">GitHub : non connecté</span>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <button class="btn btn-save btn-sm" onclick="manualSave()">💾 Sauvegarder</button>
+    <button class="btn btn-github btn-sm" id="btn-gh-connect" onclick="openGhModal()">🔗 Connecter GitHub</button>
+    <button class="btn btn-export btn-sm" onclick="exportData()">⬇️ Exporter JSON</button>
+    <button class="btn btn-import btn-sm" onclick="document.getElementById('import-input').click()">⬆️ Importer JSON</button>
+    <button class="btn btn-reset btn-sm" onclick="resetData()">↺ Réinitialiser</button>
+  </div>
+</div>
+<input type="file" id="import-input" accept=".json" style="display:none" onchange="importData(event)">
+
+<!-- TOAST -->
+<div class="toast" id="toast"><span class="toast-icon" id="toast-icon">✅</span><span id="toast-msg"></span></div>
+
+<div class="nav">
+  <button class="nav-btn active" onclick="showTab('overview')">📊 Vue d'ensemble</button>
+  <button class="nav-btn" onclick="showTab('bugs')">🐛 Registre bugs</button>
+  <button class="nav-btn" onclick="showTab('critical')">🚨 Points critiques</button>
+  <button class="nav-btn" onclick="showTab('checklist')">✅ Checklist QA</button>
+  <button class="nav-btn" onclick="showTab('modules')">🔬 Tests par module</button>
+  <button class="nav-btn" onclick="showTab('remarks')">💬 Remarques</button>
+</div>
+
+<!-- ============ OVERVIEW ============ -->
+<div id="tab-overview" class="content active">
+  <div class="cards">
+    <div class="card c-red">
+      <div class="card-num" style="color:var(--red)" id="kpi-bugs">—</div>
+      <div class="card-label">Bugs détectés</div>
+      <div class="card-sub" id="kpi-bugs-sub">—</div>
+    </div>
+    <div class="card c-orange">
+      <div class="card-num" style="color:var(--orange)" id="kpi-ko">—</div>
+      <div class="card-label">Tests KO</div>
+      <div class="card-sub" id="kpi-ko-sub">—</div>
+    </div>
+    <div class="card c-yellow">
+      <div class="card-num" style="color:var(--yellow)" id="kpi-testing">—</div>
+      <div class="card-label">À tester</div>
+      <div class="card-sub" id="kpi-testing-sub">—</div>
+    </div>
+    <div class="card c-green">
+      <div class="card-num" style="color:var(--green)" id="kpi-ok">—</div>
+      <div class="card-label">Tests OK</div>
+      <div class="card-sub" id="kpi-ok-sub">—</div>
+    </div>
+    <div class="card c-purple">
+      <div class="card-num" style="color:#a78bfa" id="kpi-total">—</div>
+      <div class="card-label">Cas de test</div>
+      <div class="card-sub" id="kpi-total-sub">—</div>
+    </div>
+  </div>
+
+  <div class="charts">
+    <div class="chart-box">
+      <h3>Bugs par gravité</h3>
+      <div class="chart-wrap"><canvas id="chart-severity"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <h3>Bugs par module</h3>
+      <div class="chart-wrap"><canvas id="chart-module"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <h3>Statut des tests</h3>
+      <div class="chart-wrap"><canvas id="chart-status"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <h3>Tests par priorité</h3>
+      <div class="chart-wrap"><canvas id="chart-priority"></canvas></div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">
+    <div>
+      <h2 style="font-size:14px;margin-bottom:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">🚨 Bloquants — production impossible</h2>
+      <div class="critical-list" id="blocker-list"></div>
+    </div>
+    <div>
+      <h2 style="font-size:14px;margin-bottom:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">⚠️ Critiques — impact majeur</h2>
+      <div class="critical-list" id="critique-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ BUGS ============ -->
+<div id="tab-bugs" class="content">
+  <div class="toolbar">
+    <input type="text" class="search" id="bug-search" placeholder="🔍 Rechercher un bug..." oninput="filterBugs()">
+    <select class="filter" id="filter-sev" onchange="filterBugs()">
+      <option value="">Toute gravité</option>
+      <option>Bloquant</option><option>Critique</option><option>Majeur</option><option>Mineur</option><option>Cosmétique</option>
+    </select>
+    <select class="filter" id="filter-module" onchange="filterBugs()">
+      <option value="">Tout module</option>
+      <option>Détail commande</option><option>Toggle</option><option>Statuts</option><option>Photo / C&C</option>
+      <option>Notifications</option><option>Navigation</option><option>Historique</option><option>Coupons</option>
+      <option>Profil / Thème</option><option>Profil / Sécurité</option><option>Historique / Profil</option>
+    </select>
+    <select class="filter" id="filter-status" onchange="filterBugs()">
+      <option value="">Tout statut</option>
+      <option>Nouveau</option><option>En cours</option><option>Validé</option><option>Fermé</option>
+    </select>
+    <button class="btn btn-primary" onclick="openModal()">+ Nouveau bug</button>
+  </div>
+  <div class="table-wrap">
+    <table id="bug-table">
+      <thead>
+        <tr>
+          <th>ID</th><th>Gravité</th><th>Module</th><th>Description</th><th>Impact métier</th><th>Statut</th><th>Assigné</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="bug-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ============ CRITICAL ============ -->
+<div id="tab-critical" class="content">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:24px">
+    <div>
+      <h2 style="font-size:14px;margin-bottom:14px;color:#fca5a5;display:flex;align-items:center;gap:6px">
+        🔴 BLOQUANTS — Mise en production impossible
+      </h2>
+      <div class="critical-list" id="full-blocker"></div>
+    </div>
+    <div>
+      <h2 style="font-size:14px;margin-bottom:14px;color:#fdba74;display:flex;align-items:center;gap:6px">
+        🟠 CRITIQUES — Impact majeur
+      </h2>
+      <div class="critical-list" id="full-critique"></div>
+    </div>
+    <div>
+      <h2 style="font-size:14px;margin-bottom:14px;color:#fde68a;display:flex;align-items:center;gap:6px">
+        🟡 IMPORTANTS — Sprint suivant
+      </h2>
+      <div class="critical-list" id="full-important"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ CHECKLIST ============ -->
+<div id="tab-checklist" class="content">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+    <div>
+      <h2 style="font-size:16px">Checklist QA — StarEats v7.7</h2>
+      <p style="font-size:12px;color:var(--muted);margin-top:2px">Cliquer sur un item pour changer son statut</p>
+    </div>
+    <div style="text-align:right">
+      <div id="checklist-summary" style="font-size:13px;color:var(--muted)"></div>
+    </div>
+  </div>
+  <div id="checklist-container"></div>
+</div>
+
+<!-- ============ MODULES ============ -->
+<div id="tab-modules" class="content">
+  <p style="font-size:12px;color:var(--muted);margin-bottom:16px">Vue des scénarios de test par fonctionnalité. 🔴 = bug confirmé, 🟡 = bug potentiel.</p>
+  <div class="module-grid" id="modules-container"></div>
+</div>
+
+<!-- ============ REMARKS ============ -->
+<div id="tab-remarks" class="content">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+    <h2 style="font-size:16px">Remarques & Observations</h2>
+    <button class="btn btn-primary" onclick="openRemarkModal()">+ Ajouter une remarque</button>
+  </div>
+  <div class="remarks" id="remarks-container"></div>
+</div>
+
+<!-- ============ ADD BUG MODAL ============ -->
+<div class="modal-overlay" id="bug-modal">
+  <div class="modal">
+    <h2>🐛 Signaler un nouveau bug</h2>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Titre *</label>
+        <input id="f-title" placeholder="Description courte du bug">
+      </div>
+      <div class="form-group">
+        <label>Gravité *</label>
+        <select class="form-select" id="f-sev">
+          <option>Bloquant</option><option>Critique</option><option selected>Majeur</option><option>Mineur</option><option>Cosmétique</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Module *</label>
+        <select class="form-select" id="f-module">
+          <option>Détail commande</option><option>Toggle</option><option>Statuts</option><option>Photo / C&C</option>
+          <option>Notifications</option><option>Navigation</option><option>Historique</option><option>Coupons</option>
+          <option>Profil / Thème</option><option>Profil / Sécurité</option><option>Réseau</option><option>Performance</option><option>Autre</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Priorité</label>
+        <select class="form-select" id="f-prio">
+          <option>Critique</option><option>Haute</option><option>Moyenne</option><option>Basse</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Version app</label>
+        <input id="f-version" value="7.7">
+      </div>
+      <div class="form-group">
+        <label>Appareil / OS</label>
+        <input id="f-device" placeholder="ex: iPhone 14 / iOS 17">
+      </div>
+      <div class="form-group form-full">
+        <label>Description</label>
+        <textarea id="f-desc" placeholder="Décrivez le comportement observé..."></textarea>
+      </div>
+      <div class="form-group form-full">
+        <label>Étapes de reproduction</label>
+        <textarea id="f-steps" placeholder="1. Ouvrir...\n2. Tapper sur...\n3. Observer..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>Résultat obtenu</label>
+        <textarea id="f-actual" style="min-height:55px" placeholder="Ce qui se passe..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>Résultat attendu</label>
+        <textarea id="f-expected" style="min-height:55px" placeholder="Ce qui devrait se passer..."></textarea>
+      </div>
+      <div class="form-group form-full">
+        <label>Impact métier</label>
+        <input id="f-impact" placeholder="Impact sur l'activité du restaurant...">
+      </div>
+      <div class="form-group">
+        <label>Assigné à</label>
+        <input id="f-assignee" placeholder="Nom du développeur">
+      </div>
+      <div class="form-group">
+        <label>Lien captures/vidéo</label>
+        <input id="f-link" placeholder="URL ou chemin...">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-secondary" onclick="closeModal()">Annuler</button>
+      <button class="btn btn-primary" onclick="saveBug()">✓ Enregistrer le bug</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ADD REMARK MODAL ============ -->
+<div class="modal-overlay" id="remark-modal">
+  <div class="modal">
+    <h2>💬 Ajouter une remarque</h2>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="form-group">
+        <label>Remarque *</label>
+        <textarea id="r-text" style="min-height:100px" placeholder="Votre observation, suggestion ou retour..."></textarea>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div class="form-group">
+          <label>Module concerné</label>
+          <select class="form-select" id="r-module">
+            <option value="">— Général —</option>
+            <option>Détail commande</option><option>Toggle</option><option>Statuts</option><option>Photo / C&C</option>
+            <option>Notifications</option><option>Navigation</option><option>Historique</option><option>Coupons</option>
+            <option>Profil</option><option>Réseau</option><option>Performance</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Type</label>
+          <select class="form-select" id="r-type">
+            <option>Observation</option><option>Suggestion</option><option>Bug nouveau</option><option>Question</option><option>Risque</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Auteur</label>
+        <input id="r-author" placeholder="Votre nom">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-secondary" onclick="closeRemarkModal()">Annuler</button>
+      <button class="btn btn-primary" onclick="saveRemark()">✓ Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ GITHUB TOKEN MODAL ============ -->
+<div class="modal-overlay" id="gh-modal">
+  <div class="modal" style="max-width:520px">
+    <h2>🔗 Connexion GitHub — Sync en ligne</h2>
+    <div class="gh-token-info">
+      Les données seront lues et écrites dans <strong>dsystems40-ai/QADashboard/qa_data.json</strong>.<br>
+      Le token est stocké uniquement dans votre navigateur, jamais dans le code.<br><br>
+      Pour créer un token :
+      <a href="https://github.com/settings/tokens/new?description=QA+Dashboard&scopes=public_repo" target="_blank">
+        github.com/settings/tokens → New token → cocher <strong>public_repo</strong>
+      </a>
+    </div>
+    <div class="form-group" style="margin-bottom:14px">
+      <label>Personal Access Token (classic)</label>
+      <input id="gh-token-input" type="password" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+    </div>
+    <div id="gh-token-status" style="font-size:12px;min-height:20px;margin-bottom:12px"></div>
+    <div class="form-actions">
+      <button class="btn btn-secondary" onclick="closeGhModal()">Annuler</button>
+      <button class="btn btn-sm" style="background:#1d4ed8;color:#fff" onclick="disconnectGitHub()" id="btn-gh-disconnect" style="display:none">Déconnecter</button>
+      <button class="btn btn-primary" onclick="connectGitHub()">✓ Connecter &amp; tester</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// DATA
+// ============================================================
+const BUGS_INITIAL = [
+  { id:'BUG-001', title:"Article: 0 en détail vs '(1 Article)' en liste", sev:'Bloquant', module:'Détail commande', status:'Nouveau', reporter:'QA', date:'15/05/2026', version:'7.7', device:'', os:'', steps:"1. Ouvrir la commande #100021\n2. Observer 'Article: 0'", actual:"'Article: 0' affiché en détail", expected:'Nombre d\'articles identique entre liste et détail', impact:'Données corrompues visibles - risque d\'erreur de préparation', assignee:'', notes:'Confirmé visuellement sur capture' },
+  { id:'BUG-002', title:"Toggle 'Fermé' actif avec commandes toujours réceptionnées", sev:'Bloquant', module:'Toggle', status:'Nouveau', reporter:'QA', date:'15/05/2026', version:'7.7', device:'', os:'', steps:"1. Activer le toggle\n2. Vérifier côté client", actual:'Toggle activé (violet) mais commandes actives présentes', expected:'Aucune nouvelle commande si restaurant fermé', impact:'Clients peuvent commander dans un restaurant fermé', assignee:'', notes:'À vérifier si commandes préexistaient' },
+  { id:'BUG-003', title:"Commande #100011 bloquée en 'Prêt' depuis 30 jours sans alerte", sev:'Critique', module:'Statuts', status:'Nouveau', reporter:'QA', date:'15/05/2026', version:'7.7', device:'', os:'', steps:"1. Aller dans 'Prêt pour la remise'\n2. Observer #100011 datée du 13 Avr 2026", actual:'Commande du 13 Avr visible au 13 Mai sans alerte', expected:'Indicateur visuel d\'alerte pour commandes > X heures', impact:'Commande client non remise, litige possible, paiement prélevé', assignee:'', notes:'' },
+  { id:'BUG-004', title:'Illustration livreur scooter affichée pour commande Click&Collect', sev:'Critique', module:'Détail commande', status:'Nouveau', reporter:'QA', date:'15/05/2026', version:'7.7', device:'', os:'', steps:'1. Ouvrir n\'importe quelle commande Click&Collect', actual:'Illustration de livreur à scooter', expected:'Illustration de retrait en magasin', impact:'Confusion UX pour le restaurateur sur le type de commande', assignee:'', notes:'Confirmé sur commandes #100021 et #100011' },
+  { id:'BUG-005', title:"Champ 'Instructions de livraison' affiché pour Click&Collect", sev:'Majeur', module:'Détail commande', status:'Nouveau', reporter:'QA', date:'15/05/2026', version:'7.7', device:'', os:'', steps:"1. Ouvrir une commande Click&Collect\n2. Observer les champs", actual:"Champ 'Instructions de livraison' visible", expected:'Champ absent ou masqué pour les commandes C&C', impact:'Information non pertinente, confusion possible', assignee:'', notes:'Confirmé sur 2 commandes C&C' },
+  { id:'BUG-006', title:"Champ 'Si produit indisponible' vide sans placeholder", sev:'Majeur', module:'Détail commande', status:'Nouveau', reporter:'QA', date:'15/05/2026', version:'7.7', device:'', os:'', steps:"1. Ouvrir une commande\n2. Observer le champ", actual:'Champ vide, pas de valeur ni de placeholder', expected:"'Non renseigné' ou champ masqué si pas de valeur", impact:'Restaurateur ne sait pas quoi faire en cas de rupture', assignee:'', notes:'' },
+  { id:'BUG-007', title:'Badge cloche sans compteur chiffré', sev:'Majeur', module:'Notifications', status:'Nouveau', reporter:'QA', date:'15/05/2026', version:'7.7', device:'', os:'', steps:'1. Observer la cloche avec badge violet', actual:'Badge violet sans chiffre', expected:'Badge avec nombre de notifications non lues', impact:'Restaurateur ne sait pas combien de commandes sont en attente', assignee:'', notes:'' },
+  { id:'BUG-008', title:'Onglets tronqués sans indication de scroll horizontal', sev:'Majeur', module:'Navigation', status:'Nouveau', reporter:'QA', date:'15/05/2026', version:'7.7', device:'', os:'', steps:'1. Observer la barre d\'onglets', actual:"Dernier onglet affiché comme 'Pré...'", expected:'Indicateur de scroll ou chevron visible', impact:'Onglet inaccessible si utilisateur ne sait pas scroller', assignee:'', notes:'' },
+  { id:'BUG-009', title:"Faute grammaticale 'La commande est Confirmé'", sev:'Cosmétique', module:'Détail commande', status:'Nouveau', reporter:'QA', date:'15/05/2026', version:'7.7', device:'', os:'', steps:"1. Ouvrir une commande en statut Confirmé", actual:"'La commande est Confirmé'", expected:"'La commande est Confirmée'", impact:'Aucun impact fonctionnel mais image de marque dégradée', assignee:'', notes:'' },
+  { id:'BUG-010', title:"'Livrer la commande' et photo demandés pour Click&Collect", sev:'Critique', module:'Photo / C&C', status:'Nouveau', reporter:'QA', date:'15/05/2026', version:'7.7', device:'', os:'', steps:"1. Ouvrir commande #100011 (C&C)\n2. En 'Prêt pour la remise'\n3. Observer l'action et la modale", actual:"'Faites glisser pour livrer' + modale 'Prendre une photo'", expected:"'Faites glisser pour remettre' + pas de photo pour C&C", impact:'Flux de livraison appliqué à tort sur une remise en main propre', assignee:'', notes:'' },
+  { id:'BUG-011', title:'Texte bouton glisser tronqué à gauche', sev:'Majeur', module:'Détail commande', status:'Nouveau', reporter:'QA', date:'15/05/2026', version:'7.7', device:'', os:'', steps:"1. Ouvrir commande #100011\n2. Observer le bouton glisser", actual:"'ites glisser pour livrer...' (F coupé par icône)", expected:"'Faites glisser pour livrer la commande' complet", impact:'UX dégradée, instruction incomplète lisible', assignee:'', notes:'' },
+  { id:'BUG-012', title:'Historique des commandes : spinner de chargement infini', sev:'Bloquant', module:'Historique', status:'Nouveau', reporter:'QA', date:'15/05/2026', version:'7.7', device:'', os:'', steps:"1. Naviguer vers l'onglet Historique\n2. Attendre 60 secondes", actual:'Spinner partiel visible, contenu vide, jamais de données', expected:'Liste des commandes historiques chargée en < 3 secondes', impact:"L'historique est totalement inaccessible - pas de traçabilité possible", assignee:'', notes:'' },
+  { id:'BUG-013', title:"'9 Total des commandes' en profil vs '0' dans l'historique", sev:'Critique', module:'Historique / Profil', status:'Nouveau', reporter:'QA', date:'15/05/2026', version:'7.7', device:'', os:'', steps:"1. Vérifier profil : 9 commandes\n2. Ouvrir historique", actual:'Historique vide (0 partout)', expected:'9 commandes visibles dans l\'historique', impact:'Données désynchronisées - comptabilité impossible', assignee:'', notes:'Lié à BUG-012' },
+  { id:'BUG-014', title:"'on Smash Burger' - texte anglais dans interface française", sev:'Majeur', module:'Coupons', status:'Nouveau', reporter:'QA', date:'15/05/2026', version:'7.7', device:'', os:'', steps:"1. Naviguer vers 'Liste des coupons'\n2. Observer coupon TEST50", actual:"'on Smash Burger' en anglais", expected:"'sur Smash Burger' en français", impact:'Incohérence de langue, image de marque dégradée', assignee:'', notes:'' },
+  { id:'BUG-015', title:'Mode sombre toggle ON mais interface affichée en mode clair', sev:'Majeur', module:'Profil / Thème', status:'Nouveau', reporter:'QA', date:'15/05/2026', version:'7.7', device:'', os:'', steps:"1. Aller dans Profil\n2. Observer toggle 'Mode sombre' (noir = ON)\n3. Observer interface", actual:'Interface en mode clair', expected:'Interface en mode sombre si toggle ON', impact:'Fonctionnalité non opérationnelle', assignee:'', notes:'' },
+  { id:'BUG-016', title:"'Supprimer le compte' accessible sans confirmation forte visible", sev:'Critique', module:'Profil / Sécurité', status:'Nouveau', reporter:'QA', date:'15/05/2026', version:'7.7', device:'', os:'', steps:"1. Aller dans Profil\n2. Appuyer sur 'Supprimer le compte'", actual:'Action déclenchée sans confirmation de mot de passe visible', expected:'Modale de confirmation forte avec saisie du mot de passe', impact:'Suppression accidentelle irréversible de toutes les données', assignee:'', notes:'' },
+  { id:'BUG-017', title:"Aucun onglet 'Annulé' dans l'historique", sev:'Majeur', module:'Historique', status:'Nouveau', reporter:'QA', date:'15/05/2026', version:'7.7', device:'', os:'', steps:"1. Observer les onglets historique : Tous / Livré / Remboursé", actual:"Pas d'onglet 'Annulé'", expected:"Onglet 'Annulé' pour tracer les refus et annulations", impact:'Traçabilité des annulations impossible', assignee:'', notes:'' },
+  { id:'BUG-018', title:"Bloquant confirmé : notifications absentes app fermée", sev:'Bloquant', module:'Notifications', status:'Nouveau', reporter:'QA', date:'15/05/2026', version:'7.7', device:'', os:'', steps:"1. Fermer l'app\n2. Passer commande client\n3. Attendre", actual:'Aucune notification reçue', expected:'Notification push système, son joué', impact:'Commandes manquées si app est en arrière-plan', assignee:'', notes:'À valider en conditions réelles' },
+  { id:'BUG-019', title:"Bloquant : suppression compte sans confirmation forte", sev:'Bloquant', module:'Profil / Sécurité', status:'Nouveau', reporter:'QA', date:'15/05/2026', version:'7.7', device:'', os:'', steps:"1. Aller dans Profil\n2. Appuyer sur 'Supprimer le compte'", actual:'Aucune confirmation de saisie de mot de passe requise', expected:'Modale de confirmation forte avec saisie du mot de passe', impact:'Risque de suppression irréversible de toutes les données', assignee:'', notes:'' },
+];
+
+const CRITICAL_POINTS = [
+  { level:'BLOQUANT', num:1, desc:"Le toggle 'Restaurant fermé' ne bloque pas réellement les commandes côté client", module:'Toggle', ref:'BUG-002', action:'Corriger avant production - vérification côté API obligatoire' },
+  { level:'BLOQUANT', num:2, desc:'Le nombre d\'articles en liste ≠ nombre en détail (données corrompues)', module:'Détail commande', ref:'BUG-001', action:'Corriger avant production - bug de données critique' },
+  { level:'BLOQUANT', num:3, desc:'Les notifications ne fonctionnent pas app fermée', module:'Notifications', ref:'', action:'À valider en conditions réelles' },
+  { level:'BLOQUANT', num:4, desc:"L'historique des commandes est inaccessible (spinner infini)", module:'Historique', ref:'BUG-012', action:'Corriger avant production - traçabilité bloquée' },
+  { level:'BLOQUANT', num:5, desc:'Supprimer le compte sans confirmation forte visible', module:'Profil / Sécurité', ref:'BUG-016', action:'Corriger avant production - risque de perte irréversible' },
+  { level:'CRITIQUE', num:6, desc:'Les changements de statut ne se propagent pas au client', module:'Statuts', ref:'STATUS-09', action:'À vérifier en intégration' },
+  { level:'CRITIQUE', num:7, desc:'Une action hors ligne peut corrompre un statut de commande', module:'Réseau', ref:'NET-04', action:'À tester en conditions réseau dégradées' },
+  { level:'CRITIQUE', num:8, desc:"L'illustration livreur s'affiche pour les commandes Click&Collect", module:'Détail commande', ref:'BUG-004', action:'Corriger avant production' },
+  { level:'CRITIQUE', num:9, desc:'La preuve photo de livraison est demandée pour une commande C&C', module:'Photo / C&C', ref:'BUG-010', action:'Corriger avant production - flux métier incorrect' },
+  { level:'CRITIQUE', num:10, desc:"9 commandes en profil vs 0 dans l'historique", module:'Historique / Profil', ref:'BUG-013', action:'Corriger avant production - données désynchronisées' },
+  { level:'CRITIQUE', num:11, desc:'Aucune alerte sur commandes bloquées depuis des heures ou des jours', module:'Statuts', ref:'BUG-003', action:"Ajouter un mécanisme d'alerte avant production" },
+  { level:'CRITIQUE', num:12, desc:"Aucune notification au restaurateur lors d'une annulation client", module:'Notifications', ref:'NOTIF-11', action:'À vérifier et corriger avant production' },
+  { level:'IMPORTANT', num:13, desc:'Champs contextuels non filtrés selon C&C ou Livraison', module:'Détail commande', ref:'BUG-005', action:'Planifier en sprint suivant' },
+  { level:'IMPORTANT', num:14, desc:'Mode sombre non fonctionnel malgré toggle activé', module:'Profil', ref:'BUG-015', action:'Planifier en sprint suivant' },
+  { level:'IMPORTANT', num:15, desc:"Aucun filtre 'Annulé' dans l'historique", module:'Historique', ref:'BUG-017', action:'Planifier en sprint suivant' },
+  { level:'IMPORTANT', num:16, desc:'Badge cloche sans compteur chiffré', module:'Notifications', ref:'BUG-007', action:'Planifier en sprint suivant' },
+  { level:'IMPORTANT', num:17, desc:'Tests de charge (20 commandes simultanées) non validés', module:'Performance', ref:'BIZ-09', action:'Valider avant production' },
+  { level:'IMPORTANT', num:18, desc:'Aucune granularité dans les paramètres de notification', module:'Profil', ref:'OBS-21', action:'Planifier en sprint suivant' },
+];
+
+const CHECKLIST = [
+  { cat:'Réception commandes', item:'Nouvelle commande reçue avec son (app ouverte)', status:'À tester', notes:'' },
+  { cat:'Réception commandes', item:'Nouvelle commande reçue avec notification push (app fermée)', status:'À tester', notes:'' },
+  { cat:'Réception commandes', item:"Compteur 'En attente' s'incrémente en temps réel", status:'À tester', notes:'' },
+  { cat:'Réception commandes', item:'Notification cliquable ouvre le bon détail', status:'À tester', notes:'' },
+  { cat:'Gestion des statuts', item:'Toutes les transitions de statuts fonctionnent correctement', status:'À tester', notes:'' },
+  { cat:'Gestion des statuts', item:'Aucune transition inverse non autorisée', status:'À tester', notes:'' },
+  { cat:'Gestion des statuts', item:"Compteurs d'onglets toujours exacts", status:'À tester', notes:'' },
+  { cat:'Gestion des statuts', item:'Synchro temps réel entre appareils vérifiée', status:'À tester', notes:'' },
+  { cat:'Gestion des statuts', item:'Pas de commande dans deux onglets simultanément', status:'À tester', notes:'' },
+  { cat:'Détail de commande', item:'Nombre d\'articles cohérent liste et détail', status:'KO', notes:'BUG-001 : Article 0 pour #100021' },
+  { cat:'Détail de commande', item:'Illustration cohérente avec type de commande', status:'KO', notes:'BUG-004 : livreur scooter sur C&C' },
+  { cat:'Détail de commande', item:'Champs contextuels selon C&C ou Livraison', status:'KO', notes:'BUG-005 : Instructions livraison sur C&C' },
+  { cat:'Détail de commande', item:"Champ 'Si produit indisponible' affiche une valeur", status:'KO', notes:'BUG-006 : champ vide' },
+  { cat:'Détail de commande', item:'Délai de livraison cohérent et réaliste', status:'À tester', notes:'' },
+  { cat:'Détail de commande', item:'Bouton téléchargement fonctionnel', status:'À tester', notes:'' },
+  { cat:'Détail de commande', item:'Texte du bouton glisser complet et lisible', status:'KO', notes:'BUG-011 : texte tronqué' },
+  { cat:'Actions', item:'Glissement résistant au tap simple', status:'À tester', notes:'' },
+  { cat:'Actions', item:'Glissement partiel annulé sans effet', status:'À tester', notes:'' },
+  { cat:'Actions', item:'Impression du ticket complète et correcte', status:'À tester', notes:'' },
+  { cat:'Actions', item:'Double impression protégée', status:'À tester', notes:'' },
+  { cat:'Photo livraison', item:'Photo demandée uniquement pour Livraison (pas C&C)', status:'KO', notes:'BUG-010 : photo demandée pour C&C' },
+  { cat:'Photo livraison', item:'Fermeture modale X : comportement défini', status:'À tester', notes:'' },
+  { cat:'Photo livraison', item:'Terminologie correcte selon le type de commande', status:'KO', notes:"BUG-010 : 'livrer' pour C&C" },
+  { cat:'Toggle restaurant fermé', item:'Activation bloque les nouvelles commandes côté client', status:'À tester', notes:'BUG-002 suspecté' },
+  { cat:'Toggle restaurant fermé', item:'Confirmation demandée avant fermeture', status:'À tester', notes:'' },
+  { cat:'Toggle restaurant fermé', item:'État persistant après fermeture/réouverture app', status:'À tester', notes:'' },
+  { cat:'Toggle restaurant fermé', item:'Commandes en cours non affectées', status:'À tester', notes:'' },
+  { cat:'Réseau', item:'Mode hors ligne géré avec message explicite', status:'À tester', notes:'' },
+  { cat:'Réseau', item:'Reconnexion après perte de connexion', status:'À tester', notes:'' },
+  { cat:'Réseau', item:'Actions hors ligne non perdues silencieusement', status:'À tester', notes:'' },
+  { cat:'Réseau', item:'Latence élevée gérée avec indicateurs', status:'À tester', notes:'' },
+  { cat:'Notifications', item:'Son d\'alerte fonctionnel (app ouverte/arrière-plan/fermée)', status:'À tester', notes:'' },
+  { cat:'Notifications', item:'Vibration active en mode silencieux', status:'À tester', notes:'' },
+  { cat:'Notifications', item:'Notification annulation client reçue', status:'À tester', notes:'' },
+  { cat:'Notifications', item:'Permissions de notification vérifiées au lancement', status:'À tester', notes:'' },
+  { cat:'Notifications', item:'Badge cloche avec compteur chiffré', status:'KO', notes:'BUG-007 : badge sans chiffre' },
+  { cat:'Historique', item:'Historique chargé sans spinner infini', status:'KO', notes:'BUG-012 : chargement infini' },
+  { cat:'Historique', item:'Statistiques cohérentes avec les commandes réelles', status:'KO', notes:'BUG-013 et BUG-015' },
+  { cat:'Historique', item:"Filtre Annulé disponible", status:'KO', notes:'BUG-017 : filtre absent' },
+  { cat:'Coupons', item:'Libellés en français', status:'KO', notes:"BUG-014 : 'on Smash Burger' en anglais" },
+  { cat:'Coupons', item:'Création et suppression avec confirmation', status:'À tester', notes:'' },
+  { cat:'Coupons', item:'Coupon expiré refusé', status:'À tester', notes:'' },
+  { cat:'Profil', item:'Mode sombre fonctionnel', status:'KO', notes:'BUG-015 : toggle ON mais interface claire' },
+  { cat:'Profil', item:'Suppression compte avec confirmation forte', status:'KO', notes:'BUG-016 : pas de confirmation visible' },
+  { cat:'Profil', item:'Compteur total commandes cohérent', status:'KO', notes:'BUG-013 : 9 profil vs 0 historique' },
+  { cat:'Performance', item:'Démarrage < 3 secondes', status:'À tester', notes:'' },
+  { cat:'Performance', item:'Navigation fluide sans saccades', status:'À tester', notes:'' },
+  { cat:'Performance', item:'Pas de memory leak sur 2h', status:'À tester', notes:'' },
+  { cat:'Performance', item:'20 commandes simultanées sans crash', status:'À tester', notes:'' },
+  { cat:'Cross-platform', item:'Testé sur Android', status:'À tester', notes:'' },
+  { cat:'Cross-platform', item:'Testé sur iOS', status:'À tester', notes:'' },
+  { cat:'Cross-platform', item:'Testé en mode sombre', status:'À tester', notes:'' },
+];
+
+const MODULES_DATA = [
+  { name:'Tableau de bord', icon:'📋', color:'#7c3aed', tests:[
+    { id:'DASH-01', prio:'Critique', text:'Affichage correct des commandes dans chaque onglet', bug:'' },
+    { id:'DASH-02', prio:'Critique', text:'Cohérence nombre d\'articles liste/détail', bug:'🔴 BUG-001 CONFIRMÉ' },
+    { id:'DASH-03', prio:'Critique', text:'Compteurs d\'onglets reflètent le nombre réel', bug:'' },
+    { id:'DASH-04', prio:'Critique', text:'Rafraîchissement automatique', bug:'' },
+    { id:'DASH-08', prio:'Haute', text:'Commandes anciennes bloquées avec alerte', bug:'🔴 BUG-003 CONFIRMÉ' },
+    { id:'DASH-13', prio:'Haute', text:'Scroll horizontal onglets avec indication', bug:'🟡 BUG-008' },
+  ]},
+  { name:'Gestion des statuts', icon:'🔄', color:'#2563eb', tests:[
+    { id:'STATUS-01', prio:'Critique', text:'Transition En attente → Confirmé', bug:'' },
+    { id:'STATUS-02', prio:'Critique', text:'Transition Confirmé → Cuisson (glissement)', bug:'' },
+    { id:'STATUS-06', prio:'Critique', text:'Synchro temps réel entre 2 appareils', bug:'' },
+    { id:'STATUS-07', prio:'Critique', text:'Statuts après reconnexion réseau', bug:'' },
+    { id:'STATUS-08', prio:'Haute', text:'Alerte commande bloquée > 60 min', bug:'🔴 BUG-003' },
+    { id:'STATUS-09', prio:'Critique', text:'Statut visible côté client en < 10 sec', bug:'' },
+  ]},
+  { name:'Détail commande', icon:'📄', color:'#dc2626', tests:[
+    { id:'CMD-02', prio:'Critique', text:'Cohérence nombre d\'articles', bug:"🔴 BUG-001 : 'Article: 0'" },
+    { id:'CMD-04', prio:'Haute', text:'Illustration selon type C&C/Livraison', bug:'🔴 BUG-004 : scooter pour C&C' },
+    { id:'CMD-05', prio:'Haute', text:'Champs contextuels adaptés au type', bug:'🔴 BUG-005 : instructions livraison sur C&C' },
+    { id:'CMD-06', prio:'Haute', text:"Champ 'Si produit indisponible'", bug:'🟡 BUG-006 : champ vide' },
+    { id:'CMD-09', prio:'Haute', text:'Navigation retour conserve le contexte', bug:'' },
+    { id:'CMD-13', prio:'Critique', text:'Ouverture depuis notification push', bug:'' },
+  ]},
+  { name:'Toggle Fermé', icon:'🔒', color:'#9333ea', tests:[
+    { id:'TOGGLE-01', prio:'Critique', text:'Activation bloque les commandes côté client', bug:'' },
+    { id:'TOGGLE-02', prio:'Critique', text:'Commandes bloquées avec toggle ON', bug:'🔴 BUG-002 POTENTIEL' },
+    { id:'TOGGLE-04', prio:'Haute', text:'Confirmation avant activation', bug:'' },
+    { id:'TOGGLE-05', prio:'Critique', text:'Persistance après fermeture app', bug:'' },
+    { id:'TOGGLE-07', prio:'Critique', text:'Commandes en cours non affectées', bug:'' },
+    { id:'TOGGLE-09', prio:'Haute', text:'Toggle hors ligne avec message d\'erreur', bug:'' },
+  ]},
+  { name:'Glissement', icon:'👆', color:'#0891b2', tests:[
+    { id:'SLIDE-01', prio:'Critique', text:'Glissement complet déclenche l\'action', bug:'' },
+    { id:'SLIDE-02', prio:'Critique', text:'Glissement partiel annulé sans effet', bug:'' },
+    { id:'SLIDE-03', prio:'Critique', text:'Tap accidentel sans déclenchement', bug:'' },
+    { id:'SLIDE-05', prio:'Critique', text:'Double glissement protégé', bug:'' },
+    { id:'SLIDE-08', prio:'Haute', text:'Feedback visuel après glissement complet', bug:'' },
+    { id:'SLIDE-10', prio:'Haute', text:'Libellé change selon le statut', bug:'' },
+  ]},
+  { name:'Photo livraison', icon:'📸', color:'#d97706', tests:[
+    { id:'PHOTO-01', prio:'Critique', text:'Modale uniquement pour Livraison (pas C&C)', bug:'🔴 BUG-010/012 CONFIRMÉ' },
+    { id:'PHOTO-03', prio:'Critique', text:'Fermeture modale X : comportement défini', bug:'🟡 OBS-22' },
+    { id:'PHOTO-04', prio:'Haute', text:'Photo obligatoire vs optionnelle', bug:'' },
+    { id:'PHOTO-08', prio:'Critique', text:"Bouton 'Livraison complète' archive la commande", bug:'' },
+    { id:'PHOTO-10', prio:'Critique', text:'Terminologie C&C vs Livraison', bug:'🔴 BUG-010 CONFIRMÉ' },
+    { id:'PHOTO-11', prio:'Haute', text:'Reprendre une photo insatisfaisante', bug:'' },
+  ]},
+  { name:'Notifications', icon:'🔔', color:'#ea580c', tests:[
+    { id:'NOTIF-01', prio:'Critique', text:'Notification app au premier plan', bug:'' },
+    { id:'NOTIF-03', prio:'Critique', text:'Notification app fermée', bug:'🔴 À VALIDER' },
+    { id:'NOTIF-04', prio:'Critique', text:'Son d\'alerte fonctionnel', bug:'' },
+    { id:'NOTIF-05', prio:'Critique', text:'Son répété si non acquitté', bug:'' },
+    { id:'NOTIF-07', prio:'Haute', text:'Badge cloche avec compteur chiffré', bug:'🔴 BUG-007 CONFIRMÉ' },
+    { id:'NOTIF-11', prio:'Critique', text:'Notification annulation client', bug:'' },
+  ]},
+  { name:'Réseau', icon:'📡', color:'#16a34a', tests:[
+    { id:'NET-01', prio:'Haute', text:'Mode hors ligne lecture avec cache', bug:'' },
+    { id:'NET-02', prio:'Critique', text:'Action hors ligne bloquée avec message', bug:'' },
+    { id:'NET-04', prio:'Critique', text:'Perte connexion pendant glissement', bug:'' },
+    { id:'NET-05', prio:'Critique', text:'Synchro au retour en ligne', bug:'' },
+    { id:'NET-06', prio:'Haute', text:'Latence élevée avec indicateur visible', bug:'' },
+    { id:'NET-09', prio:'Haute', text:'Insertion commande sans perturber le scroll', bug:'' },
+  ]},
+  { name:'Historique', icon:'📊', color:'#b45309', tests:[
+    { id:'HIST-01', prio:'Critique', text:'Chargement historique < 3 sec', bug:'🔴 BUG-012 CONFIRMÉ' },
+    { id:'HIST-02', prio:'Critique', text:'Spinner bloqué : timeout avec message', bug:'🔴 BUG-012 CONFIRMÉ' },
+    { id:'HIST-03', prio:'Critique', text:'Cohérence historique / profil', bug:'🔴 BUG-013 CONFIRMÉ' },
+    { id:'HIST-04', prio:'Critique', text:'Stats Aujourd\'hui/Semaine/Mois', bug:'🔴 OBS-15 : 0 partout' },
+    { id:'HIST-07', prio:'Haute', text:"Filtre 'Annulé' disponible", bug:'🔴 BUG-017 CONFIRMÉ' },
+    { id:'HIST-09', prio:'Haute', text:'Pagination 50+ commandes', bug:'' },
+  ]},
+  { name:'Coupons', icon:'🎟️', color:'#7c3aed', tests:[
+    { id:'COUP-02', prio:'Haute', text:'Libellés en français', bug:"🔴 BUG-014 : 'on Smash Burger'" },
+    { id:'COUP-03', prio:'Critique', text:'Création coupon fonctionnelle', bug:'' },
+    { id:'COUP-06', prio:'Critique', text:'Suppression avec confirmation', bug:'' },
+    { id:'COUP-08', prio:'Critique', text:'Réduction appliquée sur commande', bug:'' },
+    { id:'COUP-09', prio:'Critique', text:'Minimum d\'achat respecté', bug:'' },
+    { id:'COUP-11', prio:'Haute', text:'Coupon désactivé inutilisable', bug:'' },
+  ]},
+  { name:'Profil', icon:'👤', color:'#0e7490', tests:[
+    { id:'PROF-01', prio:'Critique', text:'Cohérence total commandes / historique', bug:'🔴 BUG-013' },
+    { id:'PROF-02', prio:'Haute', text:'Mode sombre toggle cohérent', bug:'🔴 BUG-015 CONFIRMÉ' },
+    { id:'PROF-04', prio:'Critique', text:'Toggle Notification désactive les push', bug:'' },
+    { id:'PROF-06', prio:'Haute', text:'Changer le mot de passe avec vérification', bug:'' },
+    { id:'PROF-09', prio:'Critique', text:'Suppression compte avec confirmation forte', bug:'🔴 BUG-016 CONFIRMÉ' },
+    { id:'PROF-13', prio:'Critique', text:'Déconnexion invalide la session serveur', bug:'' },
+  ]},
+  { name:'Performance & Charge', icon:'⚡', color:'#65a30d', tests:[
+    { id:'PERF-01', prio:'Haute', text:'Temps de démarrage < 3 secondes', bug:'' },
+    { id:'PERF-02', prio:'Haute', text:'Navigation fluide 60fps', bug:'' },
+    { id:'PERF-03', prio:'Haute', text:'Mémoire stable après 2h', bug:'' },
+    { id:'BIZ-01', prio:'Critique', text:'Refus commande + remboursement Stripe', bug:'' },
+    { id:'BIZ-09', prio:'Critique', text:'20 commandes simultanées sans crash', bug:'' },
+    { id:'BIZ-10', prio:'Critique', text:'Reprise état précis après crash', bug:'' },
+  ]},
+];
+
+// ============================================================
+// STATE
+// ============================================================
+let bugs = JSON.parse(localStorage.getItem('se_bugs') || 'null') || [...BUGS_INITIAL];
+let checklist = JSON.parse(localStorage.getItem('se_checklist') || 'null') || CHECKLIST.map((x,i) => ({...x, _id:i}));
+let remarks = JSON.parse(localStorage.getItem('se_remarks') || '[]');
+let expandedBug = null;
+
+let _unsaved = false;
+let _toastTimer = null;
+
+function markUnsaved() {
+  _unsaved = true;
+  const dot = document.getElementById('save-dot');
+  const lbl = document.getElementById('save-label');
+  if (dot) { dot.className = 'save-dot dot-unsaved'; }
+  if (lbl) { lbl.textContent = 'Modifications non sauvegardées'; lbl.style.color = '#fdba74'; }
+}
+
+function save() {
+  localStorage.setItem('se_bugs', JSON.stringify(bugs));
+  localStorage.setItem('se_checklist', JSON.stringify(checklist));
+  localStorage.setItem('se_remarks', JSON.stringify(remarks));
+  const now = new Date().toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  localStorage.setItem('se_saved_at', now);
+  _unsaved = false;
+  const dot = document.getElementById('save-dot');
+  const lbl = document.getElementById('save-label');
+  const time = document.getElementById('save-time');
+  if (dot) { dot.className = 'save-dot dot-saved'; }
+  if (lbl) { lbl.textContent = 'Sauvegardé localement'; lbl.style.color = 'var(--muted)'; }
+  if (time) { time.textContent = `Dernière sauvegarde : ${now}`; }
+}
+
+async function manualSave() {
+  save();
+  if (ghToken()) {
+    const ok = await saveToGitHub();
+    showToast(ok ? '☁️' : '⚠️',
+      ok ? 'Sauvegardé localement + synchronisé sur GitHub'
+         : 'Sauvegardé localement — échec sync GitHub (vérifiez le token)',
+      ok ? '#38bdf8' : '#f97316');
+  } else {
+    showToast('✅', 'Sauvegardé localement (connectez GitHub pour la sync en ligne)', '#22c55e');
+  }
+}
+
+function showToast(icon, msg, color) {
+  const toast = document.getElementById('toast');
+  const ti = document.getElementById('toast-icon');
+  const tm = document.getElementById('toast-msg');
+  if (!toast) return;
+  ti.textContent = icon;
+  tm.textContent = msg;
+  toast.style.borderColor = color || 'var(--border)';
+  toast.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => toast.classList.remove('show'), 3200);
+}
+
+function exportData() {
+  const data = {
+    version: '7.7', exportedAt: new Date().toISOString(),
+    bugs, checklist, remarks
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `stareats_qa_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('⬇️', 'Fichier JSON exporté avec succès', '#93c5fd');
+}
+
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.bugs || !data.checklist) throw new Error('Format invalide');
+      if (!confirm(`Importer les données du ${data.exportedAt ? new Date(data.exportedAt).toLocaleString('fr-FR') : 'fichier'} ?\nCela remplacera toutes les données actuelles.`)) return;
+      bugs = data.bugs;
+      checklist = data.checklist;
+      remarks = data.remarks || [];
+      save();
+      showToast('⬆️', `${bugs.length} bugs et ${checklist.length} tests importés`, '#22c55e');
+      renderOverview();
+    } catch(err) {
+      showToast('❌', 'Fichier invalide ou corrompu', '#ef4444');
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+function resetData() {
+  if (!confirm('Réinitialiser toutes les données ? Les bugs ajoutés manuellement seront perdus.')) return;
+  bugs = [...BUGS_INITIAL];
+  checklist = CHECKLIST.map((x,i) => ({...x, _id:i}));
+  remarks = [];
+  save();
+  showToast('↺', 'Données réinitialisées aux valeurs initiales', '#f97316');
+  renderOverview();
+}
+
+// ============================================================
+// GITHUB SYNC
+// ============================================================
+const GH_OWNER  = 'dsystems40-ai';
+const GH_REPO   = 'QADashboard';
+const GH_FILE   = 'qa_data.json';
+const GH_BRANCH = 'main';
+const GH_RAW    = `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/${GH_FILE}`;
+const GH_API    = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_FILE}`;
+
+function ghToken() { return localStorage.getItem('se_gh_token') || ''; }
+
+function setGhStatus(state, text) {
+  const dot = document.getElementById('gh-dot');
+  const lbl = document.getElementById('gh-label');
+  const btn = document.getElementById('btn-gh-connect');
+  const states = {
+    off:      { cls:'',             color:'var(--border)', txt: text || 'GitHub : non connecté',      btnCls:'' },
+    syncing:  { cls:'dot-syncing',  color:'#38bdf8',       txt: text || '🔄 Synchronisation...',      btnCls:'connected' },
+    synced:   { cls:'dot-synced',   color:'#38bdf8',       txt: text || '☁️ Synchronisé en ligne',    btnCls:'connected' },
+    error:    { cls:'dot-error',    color:'var(--orange)', txt: text || '⚠️ Erreur de sync GitHub',   btnCls:'' },
+    loaded:   { cls:'dot-synced',   color:'#38bdf8',       txt: text || '☁️ Données GitHub chargées', btnCls:'connected' },
+  };
+  const s = states[state] || states.off;
+  if (dot) { dot.className = 'save-dot ' + s.cls; dot.style.background = s.color; }
+  if (lbl) { lbl.textContent = s.txt; lbl.style.color = s.color; }
+  if (btn) {
+    btn.className = `btn btn-github btn-sm ${s.btnCls}`;
+    btn.textContent = s.btnCls ? '⚙️ GitHub connecté' : '🔗 Connecter GitHub';
+  }
+}
+
+async function loadFromGitHub() {
+  try {
+    setGhStatus('syncing', '🔄 Chargement depuis GitHub...');
+    const res = await fetch(GH_RAW + '?t=' + Date.now());
+    if (!res.ok) { setGhStatus('off'); return false; }
+    const data = await res.json();
+    if (!data.bugs || !data.checklist) { setGhStatus('off'); return false; }
+    bugs      = data.bugs;
+    checklist = data.checklist;
+    remarks   = data.remarks || [];
+    const at  = data.savedAt ? new Date(data.savedAt).toLocaleString('fr-FR') : '?';
+    setGhStatus('loaded', `☁️ GitHub — ${at}`);
+    return true;
+  } catch(e) {
+    setGhStatus('off');
+    return false;
+  }
+}
+
+async function saveToGitHub() {
+  const token = ghToken();
+  if (!token) return false;
+  setGhStatus('syncing');
+  try {
+    // Récupérer le SHA du fichier actuel (nécessaire pour la mise à jour)
+    let sha = null;
+    const metaRes = await fetch(GH_API + '?t=' + Date.now(), {
+      headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' }
+    });
+    if (metaRes.ok) { const m = await metaRes.json(); sha = m.sha; }
+
+    const payload = { version:'7.7', savedAt: new Date().toISOString(), bugs, checklist, remarks };
+    const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload, null, 2))));
+    const body    = {
+      message: `QA update ${new Date().toISOString().slice(0,16).replace('T',' ')}`,
+      content: encoded,
+      branch:  GH_BRANCH,
+      ...(sha ? { sha } : {})
+    };
+
+    const res = await fetch(GH_API, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type':  'application/json',
+        'Accept':        'application/vnd.github+json'
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (res.ok) {
+      const at = new Date().toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
+      setGhStatus('synced', `☁️ Synchronisé — ${at}`);
+      return true;
+    } else {
+      const err = await res.json().catch(() => ({}));
+      setGhStatus('error', `⚠️ Erreur GitHub : ${err.message || res.status}`);
+      return false;
+    }
+  } catch(e) {
+    setGhStatus('error', '⚠️ Réseau inaccessible');
+    return false;
+  }
+}
+
+// Modal token
+function openGhModal() {
+  const existing = ghToken();
+  const inp = document.getElementById('gh-token-input');
+  const disc = document.getElementById('btn-gh-disconnect');
+  const st   = document.getElementById('gh-token-status');
+  if (inp)  inp.value = existing ? '••••••••••••••••••••' : '';
+  if (disc) disc.style.display = existing ? 'inline-block' : 'none';
+  if (st)   st.textContent = existing ? '✅ Token enregistré. Vous pouvez le remplacer.' : '';
+  document.getElementById('gh-modal').classList.add('open');
+}
+function closeGhModal() { document.getElementById('gh-modal').classList.remove('open'); }
+document.getElementById('gh-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeGhModal(); });
+
+async function connectGitHub() {
+  const val = document.getElementById('gh-token-input').value.trim();
+  if (!val || val.startsWith('•')) { showToast('⚠️', 'Collez un nouveau token pour changer', '#f97316'); return; }
+  const st = document.getElementById('gh-token-status');
+  if (st) { st.style.color = '#38bdf8'; st.textContent = '🔄 Test du token en cours...'; }
+
+  // Test d'accès en lecture au repo
+  try {
+    const res = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}`, {
+      headers: { 'Authorization': `Bearer ${val}`, 'Accept': 'application/vnd.github+json' }
+    });
+    if (!res.ok) throw new Error(`Accès refusé (${res.status})`);
+    localStorage.setItem('se_gh_token', val);
+    if (st) { st.style.color = '#22c55e'; st.textContent = '✅ Token valide — repo accessible !'; }
+    document.getElementById('btn-gh-disconnect').style.display = 'inline-block';
+    document.getElementById('gh-token-input').value = '••••••••••••••••••••';
+    showToast('🔗', 'GitHub connecté ! La prochaine sauvegarde synchro en ligne.', '#38bdf8');
+    setGhStatus('synced', '☁️ GitHub connecté');
+    setTimeout(closeGhModal, 1400);
+  } catch(e) {
+    if (st) { st.style.color = 'var(--red)'; st.textContent = '❌ ' + e.message; }
+  }
+}
+
+function disconnectGitHub() {
+  if (!confirm('Déconnecter GitHub ? Les sauvegardes n\'iront plus en ligne.')) return;
+  localStorage.removeItem('se_gh_token');
+  document.getElementById('gh-token-input').value = '';
+  document.getElementById('btn-gh-disconnect').style.display = 'none';
+  document.getElementById('gh-token-status').textContent = '';
+  setGhStatus('off');
+  closeGhModal();
+  showToast('🔌', 'GitHub déconnecté', '#94a3b8');
+}
+
+// ============================================================
+// TABS
+// ============================================================
+function showTab(name) {
+  document.querySelectorAll('.content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+  if (name === 'overview') renderOverview();
+  if (name === 'bugs') renderBugs();
+  if (name === 'critical') renderCritical();
+  if (name === 'checklist') renderChecklist();
+  if (name === 'modules') renderModules();
+  if (name === 'remarks') renderRemarks();
+}
+
+// ============================================================
+// OVERVIEW
+// ============================================================
+function renderOverview() {
+  // KPI cards — calculés depuis les données en direct
+  const total = checklist.length;
+  const ko    = checklist.filter(x => x.status === 'KO').length;
+  const ok    = checklist.filter(x => x.status === 'OK').length;
+  const testing = checklist.filter(x => x.status === 'À tester').length;
+  const bloquants = bugs.filter(b => b.sev === 'Bloquant').length;
+  const critiques = bugs.filter(b => b.sev === 'Critique').length;
+  const totalModules = MODULES_DATA.length;
+  const totalCas = MODULES_DATA.reduce((s, m) => s + m.tests.length, 0);
+
+  document.getElementById('kpi-bugs').textContent      = bugs.length;
+  document.getElementById('kpi-bugs-sub').textContent  = `${bloquants} Bloquant${bloquants>1?'s':''} · ${critiques} Critique${critiques>1?'s':''}`;
+  document.getElementById('kpi-ko').textContent        = ko;
+  document.getElementById('kpi-ko-sub').textContent    = `Sur ${total} tests`;
+  document.getElementById('kpi-testing').textContent   = testing;
+  document.getElementById('kpi-testing-sub').textContent = `${total > 0 ? Math.round(testing/total*100) : 0}% non validés`;
+  document.getElementById('kpi-ok').textContent        = ok;
+  document.getElementById('kpi-ok-sub').textContent    = `${total > 0 ? Math.round(ok/total*100) : 0}% de couverture`;
+  document.getElementById('kpi-total').textContent     = totalCas;
+  document.getElementById('kpi-total-sub').textContent = `${totalModules} modules`;
+
+  renderCriticalList('blocker-list', CRITICAL_POINTS.filter(x => x.level === 'BLOQUANT').slice(0,5), true);
+  renderCriticalList('critique-list', CRITICAL_POINTS.filter(x => x.level === 'CRITIQUE').slice(0,6), false);
+  initCharts();
+}
+
+function renderCriticalList(id, items, isBlocker) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = items.map(p => `
+    <div class="critical-item">
+      <span class="crit-badge ${isBlocker ? 'crit-bloquant' : 'crit-critique'}">#${p.num}</span>
+      <div>
+        <div class="crit-desc">${p.desc}</div>
+        <div class="crit-meta">${p.module}${p.ref ? ' · ' + p.ref : ''}</div>
+        <div class="crit-action">→ ${p.action}</div>
+      </div>
+    </div>`).join('');
+}
+
+function initCharts() {
+  const opts = { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color:'#94a3b8', font:{size:11} } } } };
+  const sevCounts = { Bloquant:0, Critique:0, Majeur:0, Mineur:0, Cosmétique:0 };
+  bugs.forEach(b => { if (sevCounts[b.sev] !== undefined) sevCounts[b.sev]++; });
+  const modCounts = {};
+  bugs.forEach(b => { modCounts[b.module] = (modCounts[b.module] || 0) + 1; });
+  renderChart('chart-severity', 'doughnut', Object.keys(sevCounts), Object.values(sevCounts), ['#ef4444','#f97316','#eab308','#22c55e','#94a3b8'], opts);
+  const mods = Object.entries(modCounts).sort((a,b) => b[1]-a[1]);
+  renderChart('chart-module', 'bar', mods.map(x=>x[0]), mods.map(x=>x[1]), ['#7c3aed'], {...opts, indexAxis:'y', plugins:{...opts.plugins, legend:{display:false}}, scales:{x:{ticks:{color:'#94a3b8'}},y:{ticks:{color:'#94a3b8',font:{size:10}}}}});
+  const ckKO = checklist.filter(x => x.status === 'KO').length;
+  const ckOK = checklist.filter(x => x.status === 'OK').length;
+  const ckTesting = checklist.filter(x => x.status === 'À tester').length;
+  renderChart('chart-status', 'doughnut', ['KO','À tester','OK'], [ckKO, ckTesting, ckOK], ['#ef4444','#94a3b8','#22c55e'], opts);
+
+  const prioCounts = { Critique:0, Haute:0, Moyenne:0, Basse:0 };
+  MODULES_DATA.forEach(m => m.tests.forEach(t => { if (prioCounts[t.prio] !== undefined) prioCounts[t.prio]++; }));
+  renderChart('chart-priority', 'bar', Object.keys(prioCounts), Object.values(prioCounts), ['#ef4444','#f97316','#eab308','#22c55e'], {...opts, plugins:{...opts.plugins,legend:{display:false}}, scales:{x:{ticks:{color:'#94a3b8'}},y:{ticks:{color:'#94a3b8'}}}});
+}
+
+const chartInstances = {};
+function renderChart(id, type, labels, data, colors, opts) {
+  if (chartInstances[id]) { chartInstances[id].destroy(); }
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  chartInstances[id] = new Chart(ctx, { type, data: { labels, datasets: [{ data, backgroundColor: colors, borderColor: '#1e293b', borderWidth: 2 }] }, options: opts });
+}
+
+// ============================================================
+// BUGS
+// ============================================================
+function renderBugs() {
+  const search = (document.getElementById('bug-search')?.value || '').toLowerCase();
+  const fsev = document.getElementById('filter-sev')?.value || '';
+  const fmod = document.getElementById('filter-module')?.value || '';
+  const fst = document.getElementById('filter-status')?.value || '';
+  const filtered = bugs.filter(b =>
+    (!search || b.id.toLowerCase().includes(search) || b.title.toLowerCase().includes(search) || b.module.toLowerCase().includes(search) || b.impact.toLowerCase().includes(search)) &&
+    (!fsev || b.sev === fsev) && (!fmod || b.module === fmod) && (!fst || b.status === fst)
+  );
+  const tbody = document.getElementById('bug-tbody');
+  if (!tbody) return;
+  if (!filtered.length) { tbody.innerHTML = `<tr><td colspan="8" class="empty">Aucun bug trouvé.</td></tr>`; return; }
+  tbody.innerHTML = filtered.map(b => {
+    const sevClass = `sev-${b.sev.toLowerCase()}`;
+    const stClass = `status-${b.status.toLowerCase().replace(/ /g,'-')}`;
+    const isExpanded = expandedBug === b.id;
+    return `<tr onclick="toggleExpand('${b.id}')" style="cursor:pointer">
+      <td style="font-family:monospace;font-size:11px;white-space:nowrap">${b.id}</td>
+      <td><span class="sev ${sevClass}">${b.sev}</span></td>
+      <td style="font-size:11px;color:var(--muted)">${b.module}</td>
+      <td>${b.title}</td>
+      <td style="font-size:11px;color:var(--orange);max-width:200px">${b.impact}</td>
+      <td><span class="status ${stClass}">${b.status}</span></td>
+      <td style="font-size:11px">${b.assignee || '<span style="color:var(--muted)">—</span>'}</td>
+      <td onclick="event.stopPropagation()">
+        <button class="btn btn-sm" onclick="editBug('${b.id}')" style="background:#1e293b;color:#94a3b8;margin-right:4px">✏️</button>
+        <select class="filter" style="font-size:10px;padding:3px 6px" onchange="changeStatus('${b.id}', this.value)">
+          ${['Nouveau','En cours','Validé','Fermé'].map(s=>`<option ${b.status===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+      </td>
+    </tr>
+    ${isExpanded ? `<tr class="expand-row"><td colspan="8">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;font-size:12px">
+        <div><strong style="color:var(--muted);font-size:10px">ÉTAPES DE REPRODUCTION</strong><pre style="margin-top:6px;color:var(--text);white-space:pre-wrap;font-family:inherit">${b.steps || '—'}</pre></div>
+        <div><strong style="color:var(--muted);font-size:10px">RÉSULTAT OBTENU</strong><p style="margin-top:6px;color:var(--red)">${b.actual || '—'}</p>
+        <strong style="color:var(--muted);font-size:10px;display:block;margin-top:10px">RÉSULTAT ATTENDU</strong><p style="margin-top:6px;color:var(--green)">${b.expected || '—'}</p></div>
+        <div><strong style="color:var(--muted);font-size:10px">NOTES</strong><p style="margin-top:6px;color:var(--muted)">${b.notes || '—'}</p>
+        ${b.device ? `<strong style="color:var(--muted);font-size:10px;display:block;margin-top:10px">APPAREIL</strong><p style="margin-top:4px">${b.device}</p>` : ''}
+        </div>
+      </div>
+    </td></tr>` : ''}`;
+  }).join('');
+}
+
+function toggleExpand(id) {
+  expandedBug = expandedBug === id ? null : id;
+  renderBugs();
+}
+
+function filterBugs() { renderBugs(); }
+
+function changeStatus(id, status) {
+  const bug = bugs.find(b => b.id === id);
+  if (bug) { bug.status = status; save(); renderBugs(); }
+}
+
+let editingBugId = null;
+function editBug(id) {
+  const bug = bugs.find(b => b.id === id);
+  if (!bug) return;
+  editingBugId = id;
+  document.getElementById('f-title').value = bug.title;
+  document.getElementById('f-sev').value = bug.sev;
+  document.getElementById('f-module').value = bug.module;
+  document.getElementById('f-prio').value = bug.prio || 'Haute';
+  document.getElementById('f-version').value = bug.version;
+  document.getElementById('f-device').value = bug.device;
+  document.getElementById('f-desc').value = bug.desc || '';
+  document.getElementById('f-steps').value = bug.steps;
+  document.getElementById('f-actual').value = bug.actual;
+  document.getElementById('f-expected').value = bug.expected;
+  document.getElementById('f-impact').value = bug.impact;
+  document.getElementById('f-assignee').value = bug.assignee;
+  document.getElementById('f-link').value = bug.link || '';
+  openModal();
+}
+
+// ============================================================
+// CRITICAL
+// ============================================================
+function renderCritical() {
+  const render = (id, items, cls) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = items.map(p => `
+      <div class="critical-item">
+        <span class="crit-badge ${cls}">#${p.num}</span>
+        <div style="flex:1">
+          <div class="crit-desc">${p.desc}</div>
+          <div class="crit-meta">${p.module}${p.ref ? ' · <span style="font-family:monospace;font-size:10px">' + p.ref + '</span>' : ''}</div>
+          <div class="crit-action">→ ${p.action}</div>
+        </div>
+      </div>`).join('');
+  };
+  render('full-blocker', CRITICAL_POINTS.filter(x => x.level === 'BLOQUANT'), 'crit-bloquant');
+  render('full-critique', CRITICAL_POINTS.filter(x => x.level === 'CRITIQUE'), 'crit-critique');
+  render('full-important', CRITICAL_POINTS.filter(x => x.level === 'IMPORTANT'), 'crit-important');
+}
+
+// ============================================================
+// CHECKLIST
+// ============================================================
+function renderChecklist() {
+  const cats = [...new Set(checklist.map(x => x.cat))];
+  const container = document.getElementById('checklist-container');
+  if (!container) return;
+  const total = checklist.length;
+  const ko = checklist.filter(x => x.status === 'KO').length;
+  const ok = checklist.filter(x => x.status === 'OK').length;
+  const testing = checklist.filter(x => x.status === 'À tester').length;
+  document.getElementById('checklist-summary').innerHTML = `
+    <span style="color:var(--red)">🔴 ${ko} KO</span> ·
+    <span style="color:var(--green)">🟢 ${ok} OK</span> ·
+    <span style="color:var(--muted)">⚪ ${testing} À tester</span>
+    <div style="margin-top:4px">Progression : ${Math.round(ok/total*100)}% validé</div>`;
+  container.innerHTML = cats.map(cat => {
+    const items = checklist.filter(x => x.cat === cat);
+    const catOk = items.filter(x => x.status === 'OK').length;
+    const catKo = items.filter(x => x.status === 'KO').length;
+    const pct = Math.round(catOk / items.length * 100);
+    return `<div class="checklist-section">
+      <div class="checklist-header">
+        <h3><span style="color:var(--muted)">${catOk}/${items.length}</span> ${cat}</h3>
+        <div class="checklist-progress">${catKo} KO · ${pct}% OK</div>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+      <div class="checklist-items">${items.map(item => {
+        const cls = item.status === 'KO' ? 'ko' : item.status === 'OK' ? 'ok' : 'testing';
+        const scls = item.status === 'KO' ? 'cs-ko' : item.status === 'OK' ? 'cs-ok' : 'cs-test';
+        const next = item.status === 'À tester' ? 'OK' : item.status === 'OK' ? 'KO' : 'À tester';
+        return `<div class="check-item ${cls}" onclick="cycleCheck(${item._id})">
+          <span class="check-status ${scls}">${item.status}</span>
+          <div class="check-text">${item.item}${item.notes ? `<div class="check-note">${item.notes}</div>` : ''}</div>
+        </div>`;
+      }).join('')}</div>
+    </div>`;
+  }).join('');
+}
+
+function cycleCheck(id) {
+  const item = checklist.find(x => x._id === id);
+  if (!item) return;
+  const cycle = {'À tester':'OK', 'OK':'KO', 'KO':'À tester'};
+  item.status = cycle[item.status];
+  save(); renderChecklist();
+}
+
+// ============================================================
+// MODULES
+// ============================================================
+function renderModules() {
+  const container = document.getElementById('modules-container');
+  if (!container) return;
+  container.innerHTML = MODULES_DATA.map(mod => `
+    <div class="module-card">
+      <div class="module-header" style="border-top: 3px solid ${mod.color}">
+        <div class="module-title">${mod.icon} ${mod.name}</div>
+        <div class="module-count">${mod.tests.length} tests</div>
+      </div>
+      ${mod.tests.map(t => `
+        <div class="test-row">
+          <div>
+            <div class="test-id">${t.id}</div>
+            <span class="prio prio-${t.prio.toLowerCase()}"></span>
+          </div>
+          <div class="test-text">${t.text}${t.bug ? `<div class="test-bug">${t.bug}</div>` : ''}</div>
+        </div>`).join('')}
+    </div>`).join('');
+}
+
+// ============================================================
+// REMARKS
+// ============================================================
+function renderRemarks() {
+  const container = document.getElementById('remarks-container');
+  if (!container) return;
+  if (!remarks.length) {
+    container.innerHTML = `<div class="empty">Aucune remarque pour le moment. Ajoutez vos observations en cliquant sur '+ Ajouter une remarque'.</div>`;
+    return;
+  }
+  container.innerHTML = remarks.slice().reverse().map((r, i) => `
+    <div class="remark">
+      <div class="remark-header">
+        <span style="font-size:12px;font-weight:600">${r.author || 'Anonyme'} · <span style="color:var(--muted)">${r.date}</span></span>
+        <button class="btn btn-sm btn-danger" onclick="deleteRemark(${remarks.length-1-i})">✕</button>
+      </div>
+      <div class="remark-text">${r.text}</div>
+      <div class="remark-tags">
+        ${r.module ? `<span class="tag">📦 ${r.module}</span>` : ''}
+        ${r.type ? `<span class="tag">🏷️ ${r.type}</span>` : ''}
+      </div>
+    </div>`).join('');
+}
+
+function deleteRemark(idx) {
+  if (confirm('Supprimer cette remarque ?')) {
+    remarks.splice(idx, 1); save(); renderRemarks();
+  }
+}
+
+// ============================================================
+// MODALS
+// ============================================================
+function openModal() { document.getElementById('bug-modal').classList.add('open'); }
+function closeModal() { document.getElementById('bug-modal').classList.remove('open'); editingBugId = null; }
+function openRemarkModal() { document.getElementById('remark-modal').classList.add('open'); }
+function closeRemarkModal() { document.getElementById('remark-modal').classList.remove('open'); }
+
+document.getElementById('bug-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
+document.getElementById('remark-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeRemarkModal(); });
+
+function saveBug() {
+  const title = document.getElementById('f-title').value.trim();
+  if (!title) { alert('Le titre est requis.'); return; }
+  if (editingBugId) {
+    const bug = bugs.find(b => b.id === editingBugId);
+    if (bug) {
+      bug.title = title; bug.sev = document.getElementById('f-sev').value;
+      bug.module = document.getElementById('f-module').value;
+      bug.version = document.getElementById('f-version').value;
+      bug.device = document.getElementById('f-device').value;
+      bug.steps = document.getElementById('f-steps').value;
+      bug.actual = document.getElementById('f-actual').value;
+      bug.expected = document.getElementById('f-expected').value;
+      bug.impact = document.getElementById('f-impact').value;
+      bug.assignee = document.getElementById('f-assignee').value;
+    }
+  } else {
+    const maxNum = bugs.reduce((max, b) => {
+      const m = b.id.match(/BUG-(\d+)/); return m ? Math.max(max, parseInt(m[1])) : max;
+    }, 0);
+    const newBug = {
+      id: `BUG-${String(maxNum+1).padStart(3,'0')}`,
+      title, sev: document.getElementById('f-sev').value,
+      module: document.getElementById('f-module').value,
+      status: 'Nouveau', reporter: 'QA',
+      date: new Date().toLocaleDateString('fr-FR'),
+      version: document.getElementById('f-version').value,
+      device: document.getElementById('f-device').value,
+      steps: document.getElementById('f-steps').value,
+      actual: document.getElementById('f-actual').value,
+      expected: document.getElementById('f-expected').value,
+      impact: document.getElementById('f-impact').value,
+      assignee: document.getElementById('f-assignee').value,
+      notes: '', link: document.getElementById('f-link').value
+    };
+    bugs.push(newBug);
+  }
+  save(); closeModal(); renderBugs();
+  document.getElementById('f-title').value = '';
+  showToast('🐛', editingBugId ? 'Bug mis à jour et sauvegardé' : 'Nouveau bug enregistré', '#22c55e');
+}
+
+function saveRemark() {
+  const text = document.getElementById('r-text').value.trim();
+  if (!text) { alert('La remarque ne peut pas être vide.'); return; }
+  remarks.push({
+    text, module: document.getElementById('r-module').value,
+    type: document.getElementById('r-type').value,
+    author: document.getElementById('r-author').value.trim() || 'Anonyme',
+    date: new Date().toLocaleDateString('fr-FR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})
+  });
+  document.getElementById('r-text').value = '';
+  save(); closeRemarkModal(); renderRemarks();
+  showToast('💬', 'Remarque enregistrée', '#22c55e');
+}
+
+// ============================================================
+// INIT
+// ============================================================
+(async function init() {
+  // Barre de sauvegarde locale
+  const savedAt = localStorage.getItem('se_saved_at');
+  const time = document.getElementById('save-time');
+  const lbl  = document.getElementById('save-label');
+  if (savedAt) {
+    if (time) time.textContent = `Dernière sauvegarde : ${savedAt}`;
+    if (lbl)  lbl.textContent = 'Sauvegardé localement';
+  } else {
+    if (lbl) { lbl.textContent = 'Données initiales — non encore sauvegardées'; lbl.style.color = '#fdba74'; }
+    const dot = document.getElementById('save-dot');
+    if (dot) dot.className = 'save-dot dot-unsaved';
+  }
+
+  // Si token GitHub présent → charger depuis GitHub (données partagées)
+  if (ghToken()) {
+    setGhStatus('synced', '☁️ GitHub connecté');
+    const loaded = await loadFromGitHub();
+    if (loaded) {
+      // Mettre à jour aussi le localStorage avec les données GitHub
+      localStorage.setItem('se_bugs', JSON.stringify(bugs));
+      localStorage.setItem('se_checklist', JSON.stringify(checklist));
+      localStorage.setItem('se_remarks', JSON.stringify(remarks));
+    }
+  }
+
+  renderOverview();
+})();
+</script>
+</body>
+</html>
